@@ -1,15 +1,13 @@
 ;; The first three lines of this file were inserted by DrRacket. They record metadata
 ;; about the language level of this file in a form that our tools can easily process.
-#reader(lib "htdp-intermediate-lambda-reader.ss" "lang")((modname Fraktalbaum) (read-case-sensitive #t) (teachpacks ((lib "universe.rkt" "teachpack" "2htdp") (lib "image.rkt" "teachpack" "htdp"))) (htdp-settings #(#t constructor repeating-decimal #f #t none #f ((lib "universe.rkt" "teachpack" "2htdp") (lib "image.rkt" "teachpack" "htdp")) #f)))
-
-
-(define-struct cartesian (x y))
+#reader(lib "htdp-intermediate-lambda-reader.ss" "lang")((modname Fraktalbaum) (read-case-sensitive #t) (teachpacks ((lib "universe.rkt" "teachpack" "2htdp"))) (htdp-settings #(#t constructor repeating-decimal #f #t none #f ((lib "universe.rkt" "teachpack" "2htdp")) #f)))
 ;A cartesian is a structure: (make-cartesian Number Number)
 ;interp. the x and y coordinate of a point int 2-dimensional space
+(define-struct cartesian (x y))
 
-(define-struct vector(polar))
-;A vector is a structure: (make-vector polar)
-;interp. a line in 2 Dimensional space magnitude away from its origin and rotated angle radians from the positive x-axis
+;A polar is a structure: (make-polar Number Number)
+;interp. the polar depiction of a position in 2-dimensional space, where the first number
+;is an angle between a line and the x-axis, and the second number is the length of the line
 
 ;A color is a structure: (make-color(red green blue alpha))
 ;interp. The representation of red, green, blue and alpha value as color.
@@ -62,25 +60,28 @@
      (error "error: angle and length have to be numbers!")))
 
 ;cartesian, polar, color, scene -> scene
-;puts line in color from position into scene
+;interp. takes a position as cartesian, vector as polar a color and a scene
+;and returns the scene containing the vector as line from posn in color 
 (define (put-branch posn vector color scene)
-  (empty-scene 100 100))
+  MAIN-SCENE)
 
 ;cartesian, color, scene -> scene
-;takes a position as cartesian, a color and a scene and returns the scene with a circle at posn in color
+;interp. takes a position as cartesian, a color and a scene and returns the scene with a circle at posn in color
 (define (put-blossom posn color scene)
-  (empty-scene 100 100))
+  MAIN-SCENE)
 
 ;cartesian, polar, branch-angle, growth-relation, list-of-colord -> cartesian, color, scene, -> scene
 (define (tree start-posn vector branch-angle growth-relation list-of-colors)
   (if (null? rest list-of-colors)
-      (put-blossom start-posn (last list-of-colors) (empty-scene 100 100))
+      (put-blossom start-posn (last list-of-colors) scene)
       ;TODO
-    (put-branch start-posn vector (first list-of-colors))))
+    [else (put-branch start-posn vector (first list-of-colors))])
     ;(local []()) ;Angepasste konstanten für rekursive Aufrufe
-        ;(tree start-posn vector branch-angle growth-relation (rest list-of-colors))
-        ;(tree  start-posn vector branch-angle growth-relation (rest list-of-colors)))
+        (tree start-posn vector branch-angle growth-relation (rest list-of-colors))
+        (tree  start-posn vector branch-angle growth-relation (rest list-of-colors)))
      
+
+
 
 
 
