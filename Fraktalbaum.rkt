@@ -1,23 +1,29 @@
 ;; The first three lines of this file were inserted by DrRacket. They record metadata
 ;; about the language level of this file in a form that our tools can easily process.
 #reader(lib "htdp-intermediate-lambda-reader.ss" "lang")((modname Fraktalbaum) (read-case-sensitive #t) (teachpacks ((lib "universe.rkt" "teachpack" "2htdp") (lib "image.rkt" "teachpack" "htdp"))) (htdp-settings #(#t constructor repeating-decimal #f #t none #f ((lib "universe.rkt" "teachpack" "2htdp") (lib "image.rkt" "teachpack" "htdp")) #f)))
-(define-struct plar (magnitude angle))
+
+;A posn is either:
+;- a polar
+;- a cartesian
+;interp. a position in 2-dimensional space
+
+;A polar is a structure: (make-polar magnitude angle)
+;interp a point in 2-dimensional space depicted as complexx Number
 
 (define-struct cartesian (x y))
-;A cartesian is a structure: (make-cartesian Number Number)
+;A cartesian is a structure: (make-cartesian-posn Number Number)
 ;interp. the x and y coordinate of a point int 2-dimensional space
 
-(define-struct vector(plar))
+(define-struct vector(polar))
 ;A vector is a structure: (make-vector polar)
-;interp. a line in 2 Dimensional represented as polar depiction of a complex number
+;interp. a line in 2-dimesnional space
 
 ;A color is a structure: (make-color(red green blue alpha))
 ;interp. The representation of red, green, blue and alpha value as color.
 
 (define MAIN-SCENE (empty-scene 400 400))
 (define START-POINT (make-cartesian 0 0))
-(define BRANCH-VECTOR (make-vector (make-plar 10 (/ pi 3))))
-                
+(define BRANCH-VECTOR (make-vector (make-polar 10 (/ pi 3))))
 
 
 
@@ -49,59 +55,58 @@
 
 
 ;polar -> cartesian
-;interp. takes the polar depiction of a point in 2-dimensional space
-;and converts it two its cartesian depiction
-(check-expect (polar->cartesian 0 1) (make-cartesian 1 0))
-(check-error (polar->cartesian 0 "1") "error: angle and length have to be numbers!")
-(check-range (cartesian-x (polar->cartesian (sin 25) 3))  2.9 3)
-(check-within (polar->cartesian (sin 25) 3)
+;converts polar to its cartesian depiction
+(check-expect (polar->cartesian (make-polar 1 0)) (make-cartesian 1 0))
+(check-error (polar->cartesian "polar") "polar has to be a number!")
+(check-range (cartesian-x (polar->cartesian (make-polar 3 (sin 25))))  2.9 3)
+(check-within (polar->cartesian (make-polar 3 (sin 25)))
               (make-cartesian (* (cos 25) 3) (* (sin 25) 3)) 
-              0.01)
-    ; NEUE TESTS!!!!
-(define (polar->cartesian plr)
-  (if (and (real? (plar-magnitude plr)) (real? (plar-angle plr))) 
+              0.01)    
+(define (polar->cartesian polar) 
+  (if (number? polar)
   (make-cartesian
-   (* (plar-magnitude plr) (cos (plar-angle plr)))
-   (* (plar-magnitude plr) (sin (plar-angle plr))))
-     (error "error: input has to be a polar!")))
+   (* (magnitude polar) (cos (angle polar)))
+   (* (magnitude polar) (sin (angle polar))))
+  (error "polar has to be a number!")))
+   
 
 ;cartesian, vector, color, scene -> scene
 ;puts line in color from position into scene
 (define (put-branch posn vector color scene)
-  (place-image
    (add-line
-    (rectangle 40 40 "solid" "white") ;ÄNDERN
+    scene
     (cartesian-x posn) (cartesian-y posn)
-    (cartesian-x (polar->cartesian (vector-plar vector)))
-    (cartesian-y (polar->cartesian (vector-plar vector)))
-    "black")
-    200 200
-    scene))
+    (cartesian-x (polar->cartesian (vector-polar vector)))
+    (cartesian-y (polar->cartesian (vector-polar vector)))
+        color))
+
 
    
 
 ;cartesian, color, scene -> scene
 ;takes a position as cartesian, a color and a scene and returns the scene with a circle at posn in color
 (define (put-blossom posn color scene)
-  (empty-scene 100 100))
+  (place-image
+   (circle 1 "solid" color)
+   (cartesian-x posn) (cartesian-y posn)
+   scene))
 
-;cartesian, polar, branch-angle, growth-relation, list-of-colord -> cartesian, color, scene, -> scene
+;cartesian, polar, number, number, list-of-colors -> cartesian, color, scene, -> scene
 (define (tree start-posn vector branch-angle growth-relation list-of-colors)
-  (if (null? rest list-of-colors)
-      (put-blossom start-posn (last list-of-colors) (empty-scene 100 100))
+  (if (null? (rest list-of-colors))
+      (put-blossom start-posn (last list-of-colors)scene)
       ;TODO
-    (put-branch start-posn vector (first list-of-colors))))
+    (put-branch start-posn vector (first list-of-colors) (tree start-posn vector branch-angle growth-relation (rest list-of-colors)))))
     ;(local []()) ;Angepasste konstanten für rekursive Aufrufe
         ;(tree start-posn vector branch-angle growth-relation (rest list-of-colors))
         ;(tree  start-posn vector branch-angle growth-relation (rest list-of-colors)))
      
 
-(put-branch START-POINT BRANCH-VECTOR "blue"  MAIN-SCENE)
+
+;(put-blossom (polar->cartesian (vector-polar BRANCH-VECTOR)) "blue" (put-branch START-POINT BRANCH-VECTOR "red"  MAIN-SCENE))
 
 
-
-
-
+(tree START-POINT BRANCH-VECTOR (/ pi 2) 2 '("blue" "red" "green" "orange"))
 
 
 
