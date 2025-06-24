@@ -14,16 +14,16 @@
 ;A cartesian is a structure: (make-cartesian-posn Number Number)
 ;interp. the x and y coordinate of a point int 2-dimensional space
 
-(define-struct vector(polar))
+(define-struct vector(length angle))
 ;A vector is a structure: (make-vector polar)
 ;interp. a line in 2-dimesnional space
 
 ;A color is a structure: (make-color(red green blue alpha))
 ;interp. The representation of red, green, blue and alpha value as color.
 
-(define MAIN-SCENE (empty-scene 400 400))
+(define MAIN-SCENE (empty-scene 600 600))
 (define START-POINT (make-cartesian 0 0))
-(define BRANCH-VECTOR (make-vector (make-polar 10 (/ pi 3))))
+(define BRANCH-VECTOR (make-vector 10 (/ pi 3)))
 
 
 
@@ -35,6 +35,7 @@
 (check-error (last '()) "no empty lists allowed")
 (check-error (last empty) "no empty lists allowed")
 (check-error (last null) "no empty lists allowed")
+
 (define (last list)
  (if (empty? list) (error "no empty lists allowed")
      (cond
@@ -56,19 +57,20 @@
 
 ;polar -> cartesian
 ;converts polar to its cartesian depiction
-(check-expect (polar->cartesian (make-polar 1 0)) (make-cartesian 1 0))
-(check-error (polar->cartesian "polar") "polar has to be a number!")
-(check-range (cartesian-x (polar->cartesian (make-polar 3 (sin 25))))  2.9 3)
-(check-within (polar->cartesian (make-polar 3 (sin 25)))
+(check-expect (polar->cartesian 1 0) (make-cartesian 1 0))
+(check-error (polar->cartesian "1" 0) "length and angle have to be numbers!")
+(check-error (polar->cartesian 1 "0") "length and angle have to be numbers!")
+(check-range (cartesian-x (polar->cartesian 3 (sin 25)))  2.9 3)
+(check-within (polar->cartesian 3 (sin 25))
               (make-cartesian (* (cos 25) 3) (* (sin 25) 3)) 
               0.01)    
-(define (polar->cartesian polar) 
-  (if (number? polar)
+
+(define (polar->cartesian length angle)
+  (if (and (number? length) (number? angle))
   (make-cartesian
-   (* (magnitude polar) (cos (angle polar)))
-   (* (magnitude polar) (sin (angle polar))))
-  (error "polar has to be a number!")))
-   
+   (* length (cos angle))
+   (* length (sin angle)))
+    (error "length and angle have to be numbers!")))
 
 ;cartesian, vector, color, scene -> scene
 ;puts line in color from position into scene
@@ -76,9 +78,9 @@
    (add-line
     scene
     (cartesian-x posn) (cartesian-y posn)
-    (cartesian-x (polar->cartesian (vector-polar vector)))
-    (cartesian-y (polar->cartesian (vector-polar vector)))
-        color))
+    (+ (cartesian-x posn) (cartesian-x (polar->cartesian (vector-length vector) (vector-angle vector))))
+    (+ (cartesian-y posn) (cartesian-y (polar->cartesian (vector-length vector) (vector-angle vector))))
+        color)) 
 
 
    
@@ -87,27 +89,45 @@
 ;takes a position as cartesian, a color and a scene and returns the scene with a circle at posn in color
 (define (put-blossom posn color scene)
   (place-image
-   (circle 1 "solid" color)
+   (circle 2 "solid" color)
    (cartesian-x posn) (cartesian-y posn)
    scene))
 
 ;cartesian, polar, number, number, list-of-colors -> cartesian, color, scene, -> scene
-(define (tree start-posn vector branch-angle growth-relation list-of-colors)
-  (if (null? (rest list-of-colors))
-      (put-blossom start-posn (last list-of-colors)scene)
-      ;TODO
-    (put-branch start-posn vector (first list-of-colors) (tree start-posn vector branch-angle growth-relation (rest list-of-colors)))))
-    ;(local []()) ;Angepasste konstanten für rekursive Aufrufe
-        ;(tree start-posn vector branch-angle growth-relation (rest list-of-colors))
-        ;(tree  start-posn vector branch-angle growth-relation (rest list-of-colors)))
+(define (tree start-posn vector branch-angle growth-relation loc)    
+    (cond
+      [(empty? loc) MAIN-SCENE]
+      [(empty? (rest loc)) (put-blossom start-posn (last loc) MAIN-SCENE)]
+      [else
+       (local (
+              [define angle (vector-angle vector)]
+              [define length (vector-length vector)]
+              [define vector-left (make-vector (* length growth-relation) (- angle branch-angle))]
+              [define vector-right (make-vector (* length growth-relation) (+ angle branch-angle))]
+              [define delta (polar->cartesian length angle)]
+              [define end-pos (make-cartesian (+ (cartesian-x start-posn) (cartesian-x delta))
+                                              (+ (cartesian-y start-posn) (cartesian-y delta)))]
+              [define left (put-branch start-posn vector (first loc) (tree end-pos vector-left branch-angle growth-relation (rest loc)))]
+              [define right (put-branch start-posn vector (first loc) (tree end-pos vector-right branch-angle growth-relation (rest loc)))])
+              
+               (put-branch start-posn vector (first loc) (put-branch end-pos vector-left (first loc) (put-branch end-pos vector-right (first loc) left)))
+               
+               )]))
+           
+
+
+      
+ 
+
      
 
 
 ;(put-blossom (polar->cartesian (vector-polar BRANCH-VECTOR)) "blue" (put-branch START-POINT BRANCH-VECTOR "red"  MAIN-SCENE))
 
-
-(tree START-POINT BRANCH-VECTOR (/ pi 2) 2 '("blue" "red" "green" "orange"))
-
+(define POSN (make-cartesian 300 400))
+(define v (make-vector 120 (/ (- pi) 2)))
+;(put-branch (make-cartesian 300 400) (make-vector 120 (/ (- pi) 2)) "red" (empty-scene 600 600))
+(tree POSN v (/ (* 2 pi) 5) 0.66 '("blue" "red" "green" "blue" "blue" "blue" "blue" "blue" "blue"))
 
 
 
