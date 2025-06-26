@@ -26,7 +26,12 @@
 (define BRANCH-VECTOR (make-vector 10 (/ pi 3)))
 
 
-
+(define (calc-endpoint v c)
+  (make-cartesian
+   (+ (cartesian-x c)
+      (cartesian-x (polar->cartesian (vector-length v) (vector-angle v))))
+   (+ (cartesian-y c)
+      (cartesian-y (polar->cartesian (vector-length v) (vector-angle v))))))
 
 ;[X] list-of-X -> X
 ;returns the last X in list-of-X
@@ -89,7 +94,7 @@
 ;takes a position as cartesian, a color and a scene and returns the scene with a circle at posn in color
 (define (put-blossom posn color scene)
   (place-image
-   (circle 2 "solid" color)
+   (circle 5 "solid" color)
    (cartesian-x posn) (cartesian-y posn)
    scene))
 
@@ -116,10 +121,10 @@
 (define (tree1 sp v ba gr loc scene)
   (cond
     [(empty? loc) scene]
-    [(empty? (rest loc)) (put-blossom sp (last loc) scene)]
+    [(empty? (rest loc)) (put-blossom (calc-endpoint v sp) (last loc) scene)]
     [else
      (local (
-             [define angle (vector-angle v)]
+             [define angle (vector-angle v)] 
              [define length (vector-length v)]
              [define vl (make-vector (* length gr) (- angle ba))]
              [define vr (make-vector (* length gr) (+ angle ba))]
@@ -138,14 +143,16 @@
 (define POSN (make-cartesian 300 400))
 (define v (make-vector 120 (/ (- pi) 2)))
 ;(put-branch (make-cartesian 300 400) (make-vector 120 (/ (- pi) 2)) "red" (empty-scene 600 600))
-(tree POSN v (/ (* 2 pi) 5) 0.66 '("blue" "blue" "blue" "blue" "blue" "blue" "blue" "blue" "pink"))
-(tree1 POSN v (/ (* 2 pi) 5) 0.66 '("blue" "blue" "blue" "blue" "blue" "blue" "pink") (empty-scene 600 600))
+;(tree POSN v (/ (* 2 pi) 5) 0.66 '("blue" "blue" "blue" "blue" "blue" "blue" "blue" "blue" "pink"))
+(tree1 POSN v (/ (* 2 pi) 5) 0.66 '("blue" "red" "blue" "green" "blue" "orange" "red") (empty-scene 600 600))
 
-
-
-
-
-
+(define-struct WorldState (branch-angle growth-relation list-of-colors scene))
+(define DEFAULT_WORLD_STATE (make-WorldState (/ (* 2 pi) 5) 0.9 '("blue" "red" "red" "red" "red" "red" "red" "red" "red" "red" "red" "red" "red" "red" "red" "red" "red" "red" "red" "red") MAIN-SCENE))
+(define (render ws)
+ (tree1 POSN v (WorldState-branch-angle ws) (WorldState-growth-relation ws) (WorldState-list-of-colors ws) (WorldState-scene ws))) 
+  ;(tree1 POSN v (/ (* 2 pi) 5) 0.66 '("blue" "red" "blue" "green" "blue" "orange" "red") (empty-scene 600 600)))
+(big-bang DEFAULT_WORLD_STATE
+ (to-draw render)) 
 
 
 
