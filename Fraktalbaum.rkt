@@ -98,7 +98,7 @@
     (cond
       [(empty? loc) MAIN-SCENE]
       [(empty? (rest loc)) (put-blossom start-posn (last loc) MAIN-SCENE)]
-      [else
+      [else 
        (local (
               [define angle (vector-angle vector)]
               [define length (vector-length vector)]
@@ -109,13 +109,24 @@
                                               (+ (cartesian-y start-posn) (cartesian-y delta)))]
               [define left (put-branch start-posn vector (first loc) (tree end-pos vector-left branch-angle growth-relation (rest loc)))]
               [define right (put-branch start-posn vector (first loc) (tree end-pos vector-right branch-angle growth-relation (rest loc)))])
-              
-               (put-branch start-posn vector (first loc) (put-branch end-pos vector-left (first loc) (put-branch end-pos vector-right (first loc) left)))
-               
-               )]))
+            
+               (put-branch start-posn vector (first loc) (put-branch end-pos vector-left (first loc) (put-branch end-pos vector-right (first loc) left))))]))
            
 
-
+(define (tree1 sp v ba gr loc scene)
+  (cond
+    [(empty? loc) scene]
+    [(empty? (rest loc)) (put-blossom sp (last loc) scene)]
+    [else
+     (local (
+             [define angle (vector-angle v)]
+             [define length (vector-length v)]
+             [define vl (make-vector (* length gr) (- angle ba))]
+             [define vr (make-vector (* length gr) (+ angle ba))]
+             [define delta (polar->cartesian length angle)]
+             [define ep (make-cartesian (+ (cartesian-x sp) (cartesian-x delta))
+                                              (+ (cartesian-y sp) (cartesian-y delta)))])
+       (put-branch sp v (first loc) (put-branch ep vl (first loc) (put-branch ep vr (first loc) (tree1 ep vl ba gr (rest loc) (tree1 ep vr ba gr (rest loc) scene))))))])) 
       
  
 
@@ -127,7 +138,8 @@
 (define POSN (make-cartesian 300 400))
 (define v (make-vector 120 (/ (- pi) 2)))
 ;(put-branch (make-cartesian 300 400) (make-vector 120 (/ (- pi) 2)) "red" (empty-scene 600 600))
-(tree POSN v (/ (* 2 pi) 5) 0.66 '("blue" "red" "green" "blue" "blue" "blue" "blue" "blue" "blue"))
+(tree POSN v (/ (* 2 pi) 5) 0.66 '("blue" "blue" "blue" "blue" "blue" "blue" "blue" "blue" "pink"))
+(tree1 POSN v (/ (* 2 pi) 5) 0.66 '("blue" "blue" "blue" "blue" "blue" "blue" "pink") (empty-scene 600 600))
 
 
 
