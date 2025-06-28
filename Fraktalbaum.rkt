@@ -54,6 +54,7 @@
 ;[X] list-of-X -> X
 ;returns the last X in list-of-X
 (check-expect (last '(1 2 3)) 3)
+(check-expect (last (list 1 2 3 4)) 4)
 (check-expect (last (list  1 empty)) '())
 (check-error (last '()) "no empty lists allowed")
 (check-error (last empty) "no empty lists allowed")
@@ -151,7 +152,7 @@
     ([key=? key "down"] (make-WorldState (- (WorldState-branch-angle ws) 0.1) (WorldState-growth-relation ws) (WorldState-list-of-colors ws) (WorldState-scene ws)))
     ([key=? key "left"] (make-WorldState (WorldState-branch-angle ws) (+ (WorldState-growth-relation ws) 0.01) (WorldState-list-of-colors ws) (WorldState-scene ws)))
     ([key=? key "right"] (make-WorldState (WorldState-branch-angle ws) (- (WorldState-growth-relation ws) 0.01) (WorldState-list-of-colors ws) (WorldState-scene ws)))
-    ([key=? key "plus"] ...)
+    ([key=? key "+"] (make-WorldState (WorldState-branch-angle ws) (- (WorldState-growth-relation ws) 0.01) (list (last (WorldState-list-of-colors ws)) (list (start  (WorldState-list-of-colors ws)))) (WorldState-scene ws)))
     ([key=? key "minus"] ...)))
    
 
