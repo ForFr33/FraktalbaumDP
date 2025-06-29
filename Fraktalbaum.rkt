@@ -15,9 +15,24 @@
 ;A vector is a structure: (make-vector Number Number)
 ;interp. a line in 2-dimesnional space
 
-(define-struct WorldState (branch-angle growth-relation list-of-colors scene))
-;A WorldState is a structure: (make-WorldState ComplexNumber Number list-of-colors scene)
+(define-struct WorldState (start-posn branch-vector branch-angle growth-relation list-of-colors scene))
+;A WorldState is a structure: (make-WorldState Number Number Number list-of-colors scene)
 ;interp. the current state of the Program
+
+; A KeyEvent is one of these strings:
+; - "up"
+; - "down"
+; - "left"
+; - "right"
+; - "+"
+; - "-"
+; - "c"
+; - "w"
+; - "a"
+; - "s"
+; - "d"
+; - "l"
+; - "v"
 
 ;Anmerkung:
 ;ich hätte eigentlich auch gerne ein polar struct definiert, allerdings gibt es in racket/base bereits ein solches und ich war mit nicht sicher,
@@ -25,25 +40,32 @@
 ;der Länge einer Geraden im zwei-dimensionalen Raum dargestellt wird, ich hoffe, dass das kein Problem ist
 
 ;A color is a structure: (make-color(Number Number Number))
-;interp. The representation of red, green, blue and alpha value as color.
+;interp. The representation of a color as its red green and blue value
 
 
-(define POSN (make-cartesian 300 400))
+(define START_POSN (make-cartesian 300 400))
 ;interp. the default start position of the fractal tree
-(define v (make-vector 120 (/ (- pi) 2)))
+
+(define DEFAULT_VECTOR (make-vector 120 (/ (- pi) 2)))
 ;interp. the default branch vector of the fractal tree
+
 (define MAIN_SCENE (empty-scene 600 600))
 ;interp. the canvas the fractal tree is drawn onto
-(define BRANCH-VECTOR (make-vector 10 (/ pi 3)))
-(define DEFAULT_GROWTH 0.66)
-(define DEFAULT_BRANCH_ANGLE (/ (* 2 pi) 5))
-(define DEFAULT_COLOR_LIST (list (make-color 0 0 0) (make-color  255 0 0) (make-color 0 255 0) (make-color 0 0 255) (make-color 0 255 0))) 
 
-(define DEFAULT_WORLD_STATE (make-WorldState (/ (* 2 pi) 5) 0.5 DEFAULT_COLOR_LIST MAIN_SCENE))
+(define DEFAULT_GROWTH_RELATION 0.66)
+;interp. the default relation by which a branch gets shortened every recursive call
+
+(define DEFAULT_BRANCH_ANGLE (/ (* 2 pi) 5))
+;interp. the default angle by which the vectors branch for the initial WorldState
+
+(define DEFAULT_COLOR_LIST (list (make-color 0 0 0) (make-color  255 0 0) (make-color 0 255 0) (make-color 0 0 255) (make-color 0 255 0)))
+;interp. the default color list for the initial WorldState
+
+(define DEFAULT_WORLD_STATE (make-WorldState START_POSN DEFAULT_VECTOR DEFAULT_BRANCH_ANGLE DEFAULT_GROWTH_RELATION DEFAULT_COLOR_LIST MAIN_SCENE))
 ;interp. the default WorldState bigbang is being called with
 
 ;vector, cartesian -> cartesian
-;calculates the endpoint c of v
+;calculates the endpoint of v, where c is the starting point of v
 (define (calc-endpoint v c)
   (make-cartesian
    (+ (cartesian-x c)
@@ -60,10 +82,10 @@
 (check-error (last empty) "no empty lists allowed")
 (check-error (last null) "no empty lists allowed")
 (define (last list)
- (if (empty? list) (error "no empty lists allowed")
-     (cond
-       [(null? (rest list)) (first list)]
-       [else (last (rest list))])))
+  (if (empty? list) (error "no empty lists allowed")
+      (cond
+        [(null? (rest list)) (first list)]
+        [else (last (rest list))])))
 
 ;[X] list-of-X -> list-of-X
 ;returns a list-of-X without its last element
@@ -88,21 +110,22 @@
               0.01)    
 (define (polar->cartesian length angle)
   (if (and (number? length) (number? angle))
-  (make-cartesian
-   (* length (cos angle))
-   (* length (sin angle)))
-    (error "length and angle have to be numbers!")))
+      (make-cartesian
+       (* length (cos angle))
+       (* length (sin angle)))
+      (error "length and angle have to be numbers!")))
 
 ;cartesian, vector, color, scene -> scene
 ;puts line in color from position into scene
 (define (put-branch posn vector color scene)
-   (add-line
-    scene
-    (cartesian-x posn) (cartesian-y posn)
-    (cartesian-x (calc-endpoint vector posn))
-    (cartesian-y (calc-endpoint vector posn))
-        color))
+  (add-line
+   scene
+   (cartesian-x posn) (cartesian-y posn)
+   (cartesian-x (calc-endpoint vector posn))
+   (cartesian-y (calc-endpoint vector posn))
+   color))
 (define TEST_SCENE_BRANCH (scene+line (empty-scene 100 100) 10 10 20 20 "red"))
+;interp. scene to test if put-branch behaves as expected
 "Test for put-branch, test is successfull if there is a green line and nothing else visible"
 (put-branch (make-cartesian 10 10) (make-vector (sqrt (+ 400 400)) (atan 1)) "green" TEST_SCENE_BRANCH)
 
@@ -115,6 +138,7 @@
    scene))
 
 (define TEST_SCENE_BLOSSOM (place-image (circle 5 "solid" "red") 10 10 (empty-scene 100 100)))
+;interp. scene to test if put-blossom behaves as expected
 "Test for put-blossom, test is successfull if there is a green circle in the top left corner of an otherwise empty scene and no red is visible"
 (put-blossom (make-cartesian 10 10) "green" TEST_SCENE_BLOSSOM)
 
@@ -132,36 +156,81 @@
              [define vr (make-vector (* length gr) (+ angle ba))]
              [define delta (polar->cartesian length angle)]
              [define ep (make-cartesian (+ (cartesian-x sp) (cartesian-x delta))
-                                              (+ (cartesian-y sp) (cartesian-y delta)))])
+                                        (+ (cartesian-y sp) (cartesian-y delta)))])
        (put-branch sp v (first loc) (put-branch ep vl (first loc) (put-branch ep vr (first loc) (tree1 ep vl ba gr (rest loc) (tree1 ep vr ba gr (rest loc) scene))))))])) 
      
-;WorldState -> WorldState
-;takes ws and renders it
+;WorldState -> Image
+;takes ws and renders it onto a scene
 (define (render ws)
- (tree1 POSN v (WorldState-branch-angle ws) (WorldState-growth-relation ws) (WorldState-list-of-colors ws) (WorldState-scene ws))) 
+  (tree1 (WorldState-start-posn ws) (WorldState-branch-vector ws) (WorldState-branch-angle ws) (WorldState-growth-relation ws) (WorldState-list-of-colors ws) (WorldState-scene ws))) 
 
-;WorldState, key -> number
-(check-within (WorldState-branch-angle (change DEFAULT_WORLD_STATE "up"))  (+ DEFAULT_BRANCH_ANGLE 0.1) 0.001) 
-;(check-expect (changge "down") ...)
-;(check-expect (change "left") ...)
-;(check-expect (change "right") ...)
+;WorldState, KeyEvent -> WorldState
+;increases/decreases branch-angle and growth-relation when "up"/"left" or "down"/"right" are pressed and changes list-of-colors when "+", "-" or " " are pressed
+(check-within (change (change (change DEFAULT_WORLD_STATE "up") "left") "+") (make-WorldState
+                                                                              (WorldState-start-posn DEFAULT_WORLD_STATE)
+                                                                              (WorldState-branch-vector DEFAULT_WORLD_STATE)
+                                                                              (+ (WorldState-branch-angle DEFAULT_WORLD_STATE) 0.1)
+                                                                              (+ (WorldState-growth-relation DEFAULT_WORLD_STATE) 0.01)
+                                                                              (append (list (last (WorldState-list-of-colors DEFAULT_WORLD_STATE))) (start (WorldState-list-of-colors DEFAULT_WORLD_STATE)))
+                                                                              (WorldState-scene DEFAULT_WORLD_STATE))
+                                                                              0.001)
+(check-within (change (change (change DEFAULT_WORLD_STATE "down") "right") "-") (make-WorldState
+                                                                                 (WorldState-start-posn DEFAULT_WORLD_STATE)
+                                                                                 (WorldState-branch-vector DEFAULT_WORLD_STATE)                           
+                                                                                 (- (WorldState-branch-angle DEFAULT_WORLD_STATE) 0.1)
+                                                                                 (- (WorldState-growth-relation DEFAULT_WORLD_STATE) 0.01)
+                                                                                 (append (rest (WorldState-list-of-colors DEFAULT_WORLD_STATE)) (list (first (WorldState-list-of-colors DEFAULT_WORLD_STATE))))
+                                                                                 (WorldState-scene DEFAULT_WORLD_STATE))
+                                                                                 0.001)
 (define (change ws key)
   (cond
-    [(key=? key "up") (make-WorldState (+ (WorldState-branch-angle ws) 0.1) (WorldState-growth-relation ws) (WorldState-list-of-colors ws) (WorldState-scene ws))]
-    [(key=? key "down") (make-WorldState (- (WorldState-branch-angle ws) 0.1) (WorldState-growth-relation ws) (WorldState-list-of-colors ws) (WorldState-scene ws))]
-    [(key=? key "left") (make-WorldState (WorldState-branch-angle ws) (+ (WorldState-growth-relation ws) 0.01) (WorldState-list-of-colors ws) (WorldState-scene ws))]
-    [(key=? key "right") (make-WorldState (WorldState-branch-angle ws) (- (WorldState-growth-relation ws) 0.01) (WorldState-list-of-colors ws) (WorldState-scene ws))]
-    [(key=? key "+") (make-WorldState (WorldState-branch-angle ws) (WorldState-growth-relation ws)  (append (list (last (WorldState-list-of-colors ws))) (start (WorldState-list-of-colors ws))) (WorldState-scene ws))]
-    [(key=? key "-") (make-WorldState (WorldState-branch-angle ws) (WorldState-growth-relation ws)  (append (rest (WorldState-list-of-colors ws)) (list (first (WorldState-list-of-colors ws)))) (WorldState-scene ws))]
-    [(key=? key " ") (make-WorldState (WorldState-branch-angle ws) (WorldState-growth-relation ws) (map (lambda (c) (make-color (color-green c) (color-blue c) (color-red c))) (WorldState-list-of-colors ws)) (WorldState-scene ws))]
-    [else (error (string-append "change is not defined for the key " key))]))
-    
-   
+    [(key=? key "up") (make-WorldState (WorldState-start-posn ws) (WorldState-branch-vector ws)  (+ (WorldState-branch-angle ws) 0.1) (WorldState-growth-relation ws) (WorldState-list-of-colors ws) (WorldState-scene ws))]
+    [(key=? key "down") (make-WorldState (WorldState-start-posn ws) (WorldState-branch-vector ws)  (- (WorldState-branch-angle ws) 0.1) (WorldState-growth-relation ws) (WorldState-list-of-colors ws) (WorldState-scene ws))]
+    [(key=? key "left") (make-WorldState (WorldState-start-posn ws) (WorldState-branch-vector ws) (WorldState-branch-angle ws) (+ (WorldState-growth-relation ws) 0.01) (WorldState-list-of-colors ws) (WorldState-scene ws))]
+    [(key=? key "right") (make-WorldState (WorldState-start-posn ws)(WorldState-branch-vector ws) (WorldState-branch-angle ws) (- (WorldState-growth-relation ws) 0.01) (WorldState-list-of-colors ws) (WorldState-scene ws))]
+    [(key=? key "+") (make-WorldState (WorldState-start-posn ws) (WorldState-branch-vector ws) (WorldState-branch-angle ws) (WorldState-growth-relation ws)  (append (list (last (WorldState-list-of-colors ws))) (start (WorldState-list-of-colors ws))) (WorldState-scene ws))]
+    [(key=? key "-") (make-WorldState (WorldState-start-posn ws) (WorldState-branch-vector ws)  (WorldState-branch-angle ws) (WorldState-growth-relation ws)  (append (rest (WorldState-list-of-colors ws)) (list (first (WorldState-list-of-colors ws)))) (WorldState-scene ws))]
+    [(key=? key " ") (make-WorldState (WorldState-start-posn ws) (WorldState-branch-vector ws)  (WorldState-branch-angle ws) (WorldState-growth-relation ws) (map (lambda (c) (make-color (color-green c) (color-blue c) (color-red c))) (WorldState-list-of-colors ws)) (WorldState-scene ws))]
+    [(key=? key "c") (make-WorldState (WorldState-start-posn ws) (WorldState-branch-vector ws) (WorldState-branch-angle ws) (WorldState-growth-relation ws) (append (list (make-color (random 256) (random 256) (random 256))) (WorldState-list-of-colors ws)) (WorldState-scene ws))]
+    [(key=? key "d") (make-WorldState (make-cartesian (+ (cartesian-x (WorldState-start-posn ws)) 20) (cartesian-y (WorldState-start-posn ws))) (WorldState-branch-vector ws)  (WorldState-branch-angle ws) (WorldState-growth-relation ws)  (WorldState-list-of-colors ws) (WorldState-scene ws))]
+    [(key=? key "s") (make-WorldState (make-cartesian (cartesian-x (WorldState-start-posn ws)) (+ (cartesian-y (WorldState-start-posn ws)) 20)) (WorldState-branch-vector ws)  (WorldState-branch-angle ws) (WorldState-growth-relation ws)  (WorldState-list-of-colors ws) (WorldState-scene ws))]
+    [(key=? key "a") (make-WorldState (make-cartesian (- (cartesian-x (WorldState-start-posn ws)) 20) (cartesian-y (WorldState-start-posn ws))) (WorldState-branch-vector ws)  (WorldState-branch-angle ws) (WorldState-growth-relation ws)  (WorldState-list-of-colors ws) (WorldState-scene ws))]
+    [(key=? key "w") (make-WorldState (make-cartesian (cartesian-x (WorldState-start-posn ws)) (- (cartesian-y (WorldState-start-posn ws)) 20)) (WorldState-branch-vector ws)  (WorldState-branch-angle ws) (WorldState-growth-relation ws)  (WorldState-list-of-colors ws) (WorldState-scene ws))]
+    [(key=? key "l") (make-WorldState (WorldState-start-posn ws) (WorldState-branch-vector ws) (WorldState-branch-angle ws) (WorldState-growth-relation ws) (append (WorldState-list-of-colors ws) (list (make-color (random 256) (random 256) (random 256)))) (WorldState-scene ws))]
+    [(key=? key "v") (make-WorldState (WorldState-start-posn ws) (make-vector (+ (vector-length (WorldState-branch-vector ws)) 10) (vector-angle (WorldState-branch-vector ws)))  (WorldState-branch-angle ws) (WorldState-growth-relation ws) (WorldState-list-of-colors ws) (WorldState-scene ws))]
+    [(key=? key "r") DEFAULT_WORLD_STATE]
+    [else (error (string-append "change is not defined for the key " key))]))    
      
+;Anmerkung: da der Baum recht groß ist, braucht er ein wenig zeit, bis er gezeichnet wird
+;Anmerkung: da der Baum recht groß ist, braucht er ein wenig zeit, bis er gezeichnet wird
+(render (make-WorldState
+ (make-cartesian 300 600)
+ (make-vector 140 #i-1.5707963267948966)
+  #i0.8566370614359171
+  0.66
+ (list
+  (make-color 170 116 23)
+  (make-color 180 80 190)
+  (make-color 210 78 153)
+  (make-color 210 21 153)
+  (make-color 100 53 167)
+  (make-color 71 92 110)
+  (make-color 72 89 214)
+  (make-color 117 88 1)
+  (make-color 0 0 0)
+  (make-color 255 0 0)
+  (make-color 0 255 0)
+  (make-color 0 0 255)
+  (make-color 0 255 0)
+  (make-color 245 184 169))
+ MAIN_SCENE))
 
+     
+;installs all event handlers and initializes WorldState with default values
 (big-bang DEFAULT_WORLD_STATE
   (on-key change)
   (to-draw render)) 
+
 
 
 
