@@ -1,23 +1,29 @@
 ;; The first three lines of this file were inserted by DrRacket. They record metadata
 ;; about the language level of this file in a form that our tools can easily process.
 #reader(lib "htdp-intermediate-lambda-reader.ss" "lang")((modname Fraktalbaum) (read-case-sensitive #t) (teachpacks ((lib "universe.rkt" "teachpack" "2htdp") (lib "image.rkt" "teachpack" "htdp"))) (htdp-settings #(#t constructor repeating-decimal #f #t none #f ((lib "universe.rkt" "teachpack" "2htdp") (lib "image.rkt" "teachpack" "htdp")) #f)))
-
 ;A posn is either:
-;- a polar
-;- a cartesian
-;interp. a position in 2-dimensional space
+; - A cartesian
+; - A polar
 
 (define-struct cartesian (x y))
 ;A cartesian is a structure: (make-cartesian Number Number)
 ;interp. the x and y coordinate of a point int 2-dimensional space
 
+;A polar is a structure (make-polar Number Number)
+;interp. the polar depiction of a point in 2-dimensional space
+
+;Anmerkung:
+;ich hätte eigentlich auch gerne ein polar struct definiert, allerdings gibt es in racket/base bereits ein solches und ich war mit nicht sicher,
+;ob wir dieses benutzen dürfen und da der name "polar" bereits dafür vergeben ist habe ich es so gemacht, dass ein polar einfach als winkel zusammen mit
+;der Länge einer Geraden im zwei-dimensionalen Raum dargestellt wird, ich hoffe, dass das kein Problem ist
+
 (define-struct vector(length angle))
 ;A vector is a structure: (make-vector Number Number)
-;interp. a line in 2-dimesnional space
+;interp. a line in 2-dimensional space
 
 (define-struct WorldState (start-posn branch-vector branch-angle growth-relation list-of-colors scene))
 ;A WorldState is a structure: (make-WorldState Number Number Number list-of-colors scene)
-;interp. the current state of the Program
+;interp. the current state of the Program represented as image
 
 ; A KeyEvent is one of these strings:
 ; - "up"
@@ -34,38 +40,24 @@
 ; - "l"
 ; - "v"
 
-;Anmerkung:
-;ich hätte eigentlich auch gerne ein polar struct definiert, allerdings gibt es in racket/base bereits ein solches und ich war mit nicht sicher,
-;ob wir dieses benutzen dürfen und da der name "polar" bereits dafür vergeben ist habe ich es so gemacht, dass ein polar einfach als winkel zusammen mit
-;der Länge einer Geraden im zwei-dimensionalen Raum dargestellt wird, ich hoffe, dass das kein Problem ist
-
 ;A color is a structure: (make-color(Number Number Number))
 ;interp. The representation of a color as its red green and blue value
 
-
+;constants:
 (define START_POSN (make-cartesian 300 400))
-;interp. the default start position of the fractal tree
-
 (define DEFAULT_VECTOR (make-vector 120 (/ (- pi) 2)))
-;interp. the default branch vector of the fractal tree
-
 (define MAIN_SCENE (empty-scene 600 600))
-;interp. the canvas the fractal tree is drawn onto
-
 (define DEFAULT_GROWTH_RELATION 0.66)
-;interp. the default relation by which a branch gets shortened every recursive call
-
 (define DEFAULT_BRANCH_ANGLE (/ (* 2 pi) 5))
-;interp. the default angle by which the vectors branch for the initial WorldState
-
 (define DEFAULT_COLOR_LIST (list (make-color 0 0 0) (make-color  255 0 0) (make-color 0 255 0) (make-color 0 0 255) (make-color 0 255 0)))
-;interp. the default color list for the initial WorldState
-
 (define DEFAULT_WORLD_STATE (make-WorldState START_POSN DEFAULT_VECTOR DEFAULT_BRANCH_ANGLE DEFAULT_GROWTH_RELATION DEFAULT_COLOR_LIST MAIN_SCENE))
-;interp. the default WorldState bigbang is being called with
+
 
 ;vector, cartesian -> cartesian
 ;calculates the endpoint of v, where c is the starting point of v
+(check-within (calc-endpoint DEFAULT_VECTOR (make-cartesian 0 0)) (make-cartesian (+ 0 (cartesian-x (polar->cartesian (vector-length DEFAULT_VECTOR) (vector-angle DEFAULT_VECTOR))))
+                                                                                  (+ 0 (cartesian-y (polar->cartesian (vector-length DEFAULT_VECTOR) (vector-angle DEFAULT_VECTOR))))) 0.01)
+                                                                                                 
 (define (calc-endpoint v c)
   (make-cartesian
    (+ (cartesian-x c)
@@ -100,7 +92,7 @@
 
 
 ;polar -> cartesian
-;converts polar to its cartesian depiction
+;converts a posn in polar depiction to its cartesian depiction
 (check-expect (polar->cartesian 1 0) (make-cartesian 1 0))
 (check-error (polar->cartesian "1" 0) "length and angle have to be numbers!")
 (check-error (polar->cartesian 1 "0") "length and angle have to be numbers!")
@@ -143,8 +135,8 @@
 (put-blossom (make-cartesian 10 10) "green" TEST_SCENE_BLOSSOM)
 
 ;cartesian, vector, number, number, list-of-colors, scene -> scene
-;draws branch from sp in direction of v in the first color in loc if loc still
-(define (tree1 sp v ba gr loc scene)
+;draws branch from sp in direction of v in the first color in loc if loc still has color, else if there are no colors in loc left draws blossom in last color in loc
+(define (tree sp v ba gr loc scene)
   (cond
     [(empty? loc) scene]
     [(empty? (rest loc)) (put-blossom (calc-endpoint v sp) (last loc) scene)]
@@ -155,17 +147,16 @@
              [define vl (make-vector (* length gr) (- angle ba))]
              [define vr (make-vector (* length gr) (+ angle ba))]
              [define delta (polar->cartesian length angle)]
-             [define ep (make-cartesian (+ (cartesian-x sp) (cartesian-x delta))
-                                        (+ (cartesian-y sp) (cartesian-y delta)))])
-       (put-branch sp v (first loc) (put-branch ep vl (first loc) (put-branch ep vr (first loc) (tree1 ep vl ba gr (rest loc) (tree1 ep vr ba gr (rest loc) scene))))))])) 
+             [define ep (calc-endpoint (make-vector length angle) sp)])
+       (put-branch sp v (first loc) (put-branch ep vl (first loc) (put-branch ep vr (first loc) (tree ep vl ba gr (rest loc) (tree ep vr ba gr (rest loc) scene))))))]))  
      
 ;WorldState -> Image
 ;takes ws and renders it onto a scene
 (define (render ws)
-  (tree1 (WorldState-start-posn ws) (WorldState-branch-vector ws) (WorldState-branch-angle ws) (WorldState-growth-relation ws) (WorldState-list-of-colors ws) (WorldState-scene ws))) 
+  (tree (WorldState-start-posn ws) (WorldState-branch-vector ws) (WorldState-branch-angle ws) (WorldState-growth-relation ws) (WorldState-list-of-colors ws) (WorldState-scene ws))) 
 
 ;WorldState, KeyEvent -> WorldState
-;increases/decreases branch-angle and growth-relation when "up"/"left" or "down"/"right" are pressed and changes list-of-colors when "+", "-" or " " are pressed
+;changes properties of current world state based of given KeyEvents
 (check-within (change (change (change DEFAULT_WORLD_STATE "up") "left") "+") (make-WorldState
                                                                               (WorldState-start-posn DEFAULT_WORLD_STATE)
                                                                               (WorldState-branch-vector DEFAULT_WORLD_STATE)
@@ -201,8 +192,7 @@
     [(key=? key "r") DEFAULT_WORLD_STATE]
     [else (error (string-append "change is not defined for the key " key))]))    
      
-;Anmerkung: da der Baum recht groß ist, braucht er ein wenig zeit, bis er gezeichnet wird
-;Anmerkung: da der Baum recht groß ist, braucht er ein wenig zeit, bis er gezeichnet wird
+
 (render (make-WorldState
  (make-cartesian 300 600)
  (make-vector 140 #i-1.5707963267948966)
